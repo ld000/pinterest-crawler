@@ -34,12 +34,14 @@ class PinterestPipeline(object):
             crawled_time = self.get_crawled_time()
             if isinstance(item, PinItem):
                 images = item['pin']['images']
-                orig = images['orig']
+                orig = images.get('orig')
+                x736 = images.get('736x')
 
                 id = item['pin']['id']
                 videos = item['pin']['videos']
                 author_id = item['pin']['pinner']['id']
                 verified = item['pin']['pinner']['verified_identity'].get('verified')
+                content = item['pin']['grid_title']
 
                 type = 2
                 if videos is not None:
@@ -55,14 +57,18 @@ class PinterestPipeline(object):
                 if verified is not None and verified:
                     return item
 
-                images = [orig['url']]
+                images = []
+                if orig is None:
+                    images.append(x736['url'])
+                else:
+                    images.append(orig['url'])
 
                 with self.db.cursor() as cursor:
                     sql = "insert into crawl_post(source, origin_id, type, author_id, pub_time, origin, origin_images, origin_content, origin_video) " \
                           "values (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     try:
                         cursor.execute(sql, (2, id, type, author_id, '0000-00-00 00:00:00',
-                                             json.dumps(item['pin']), json.dumps(images), '', ''))
+                                             json.dumps(item['pin']), json.dumps(images), content, ''))
                     except DuplicateKeyError:
                         logging.info('duplicate key')
                 self.db.commit()
